@@ -25,6 +25,8 @@
 #endif
 #endif
 
+#include <Wtsapi32.h>
+
 #define IDI_MAINICON 200
 #define IDI_TRAYICON 201
 
@@ -69,6 +71,8 @@ static filereq *keypath = NULL;
 #define PUTTY_REGKEY      "Software\\SimonTatham\\PuTTY\\Sessions"
 #define PUTTY_DEFAULT     "Default%20Settings"
 static int initial_menuitems_count;
+
+static BOOL quitOnLock = FALSE;
 
 /*
  * Print a modal (Really Bad) message box and perform a fatal exit.
@@ -1742,6 +1746,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_CREATE:
         msgTaskbarCreated = RegisterWindowMessage(_T("TaskbarCreated"));
         break;
+	  case WM_WTSSESSION_CHANGE:
+        if (quitOnLock)
+		   SendMessage(hwnd, WM_CLOSE, 0, 0);
+		break;
       default:
         if (message==msgTaskbarCreated) {
             /*
@@ -2112,6 +2120,11 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	    else
 		command = "";
 	    break;
+	} else if (!strcmp(argv[i], "-quitOnLock")) {
+		/*
+		 * If we see -quitOnLock, then we should terminate on lock
+		 */
+	    quitOnLock = TRUE;
 	} else {
 	    add_keyfile(filename_from_str(argv[i]));
 	    added_keys = TRUE;
@@ -2201,6 +2214,10 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     SetMenuDefaultItem(systray_menu, IDM_VIEWKEYS, FALSE);
 
     ShowWindow(hwnd, SW_HIDE);
+
+	/* Make sure that workstation locked messages are posted to the message loop */
+    if (quitOnLock)
+        WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION);
 
     /*
      * Main message loop.
