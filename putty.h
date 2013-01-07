@@ -16,6 +16,8 @@
 #endif
 #endif
 
+#define SECURITY_WIN32
+
 #ifndef DONE_TYPEDEFS
 #define DONE_TYPEDEFS
 typedef struct config_tag Config;
