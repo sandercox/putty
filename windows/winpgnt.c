@@ -73,6 +73,7 @@ static filereq *keypath = NULL;
 static int initial_menuitems_count;
 
 static BOOL quitOnLock = FALSE;
+static int quitOnLockTimeOut = 0;
 
 /*
  * Print a modal (Really Bad) message box and perform a fatal exit.
@@ -1747,9 +1748,28 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         msgTaskbarCreated = RegisterWindowMessage(_T("TaskbarCreated"));
         break;
 	  case WM_WTSSESSION_CHANGE:
-        if (quitOnLock)
-		   SendMessage(hwnd, WM_CLOSE, 0, 0);
+		  if (quitOnLock)
+			  switch (wParam)
+			  {
+				case WTS_SESSION_LOCK:
+					// start timer
+					SetTimer(hwnd, 1234, quitOnLockTimeOut * 1000, NULL);
+					break;
+				case WTS_SESSION_UNLOCK:
+					// remove timer if present
+					KillTimer(hwnd, 1234);
+					break;
+				case WTS_SESSION_LOGOFF:
+					SendMessage(hwnd, WM_CLOSE, 0, 0);
+					break;
+			  }
 		break;
+	  case WM_TIMER:
+		  if (1234 == wParam)
+		  {
+			  SendMessage(hwnd, WM_CLOSE, 0, 0);
+		  }
+		  break;
       default:
         if (message==msgTaskbarCreated) {
             /*
@@ -2125,6 +2145,9 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 		 * If we see -quitOnLock, then we should terminate on lock
 		 */
 	    quitOnLock = TRUE;
+		i++;
+		if (i < argc)
+			quitOnLockTimeOut = atoi(argv[i]);
 	} else {
 	    add_keyfile(filename_from_str(argv[i]));
 	    added_keys = TRUE;
